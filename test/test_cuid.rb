@@ -1,7 +1,7 @@
 require 'cuid'
-require 'test/unit'
+require 'minitest/autorun'
 
-class CuidTest < Test::Unit::TestCase
+class TestCuid < Minitest::Test
   def test_generate_string
     c = Cuid::generate
     assert c.is_a? String
@@ -41,9 +41,10 @@ class CuidTest < Test::Unit::TestCase
   end
 
   def test_secure_random
+    puts Cuid::generate
     results = {}
     collision = false
-    c = Cuid::generate(1000,true)
+    c = Cuid::generate(1000)
     c.each do |e|
       collision = true if results[e]
       results[e] = true
@@ -52,7 +53,7 @@ class CuidTest < Test::Unit::TestCase
   end
 
   def test_version
-    assert_nothing_raised { Cuid::VERSION }
+    assert Cuid::VERSION
   end
 end
 

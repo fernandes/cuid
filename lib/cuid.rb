@@ -1,9 +1,6 @@
 require "socket"
 require 'cuid/version'
-begin
-  require "securerandom"
-rescue LoadError
-end
+require "securerandom"
 
 ##
 # Cuid is a library for generating unique collision-resistant IDs optimized for horizontal scaling and performance
@@ -76,8 +73,7 @@ module Cuid
     #   @param [Integer] quantity determines number of hashes returned (must be greater than 1)
     #   @param [Boolean] secure_random attempts to use SecureRandom if set to True (Ruby 1.9.2 and up; reverts to Kernel#rand if SecureRandom is not supported)
     #   @return [Array<String>]
-    def generate(quantity=1,secure_random=false)
-      @use_secure_random = secure_random
+    def generate(quantity=1)
       @fingerprint = get_fingerprint # only need to get the fingerprint once because it is constant per-run
       return api unless quantity > 1
 
@@ -100,77 +96,72 @@ module Cuid
    
     private
 
-    ##
-    # Collects and asssembles the pieces into the actual hash string.
-    #
-    # @private
-    def api
-      timestamp = (Time.now.to_f * 1000).truncate.to_s(BASE)
+      ##
+      # Collects and asssembles the pieces into the actual hash string.
+      #
+      # @private
+      def api
+        timestamp = (Time.now.to_f * 1000).truncate.to_s(BASE)
 
-      random = get_random_block
+        random = get_random_block
 
-      @count = @count % DISCRETE_VALUES
-      counter = pad(@count.to_s(BASE))
+        @count = @count % DISCRETE_VALUES
+        counter = pad(@count.to_s(BASE))
 
-      @count += 1
+        @count += 1
+        
+        return (LETTER + timestamp + counter + @fingerprint + random)
+      end
       
-      return (LETTER + timestamp + counter + @fingerprint + random)
-    end
-    
-    ##
-    # Returns a string which has been converted to the correct size alphabet as defined in
-    # the BASE constant (e.g. base36) and then padded or trimmed to the correct length.
-    #
-    # @private
-    def format(text,size=BLOCK_SIZE)
-      base36_text = text.to_s(BASE)
-      return (base36_text.length > size) ? trim(base36_text,size) : pad(base36_text,size)
-    end
+      ##
+      # Returns a string which has been converted to the correct size alphabet as defined in
+      # the BASE constant (e.g. base36) and then padded or trimmed to the correct length.
+      #
+      # @private
+      def format(text,size=BLOCK_SIZE)
+        base36_text = text.to_s(BASE)
+        return (base36_text.length > size) ? trim(base36_text,size) : pad(base36_text,size)
+      end
 
-    ##
-    # Returns a string trimmed to the length supplied or BLOCK_SIZE if no length is supplied.
-    #
-    # @private
-    def trim(text,max=BLOCK_SIZE)
-      original_length = text.length
-      return text[original_length-max,max]
-    end
+      ##
+      # Returns a string trimmed to the length supplied or BLOCK_SIZE if no length is supplied.
+      #
+      # @private
+      def trim(text,max=BLOCK_SIZE)
+        original_length = text.length
+        return text[original_length-max,max]
+      end
 
-    ##
-    # Returns a string right-justified and padded with zeroes up to the length supplied or
-    # BLOCK_SIZE if no length is supplied.
-    #
-    # @private
-    def pad(text,size=BLOCK_SIZE)
-      return text.rjust(size,"0")
-    end
+      ##
+      # Returns a string right-justified and padded with zeroes up to the length supplied or
+      # BLOCK_SIZE if no length is supplied.
+      #
+      # @private
+      def pad(text,size=BLOCK_SIZE)
+        return text.rjust(size,"0")
+      end
 
-    ##
-    # Generates a random string.
-    #
-    # @private
-    def get_random_block
-      @secure_random = defined?(SecureRandom) if @secure_random.nil?
-      if @secure_random && @use_secure_random then
+      ##
+      # Generates a random string.
+      #
+      # @private
+      def get_random_block        
         number = SecureRandom.random_number(RAND_MAX - RAND_MIN) + RAND_MIN
-      else
-        number = ((rand * (RAND_MAX - RAND_MIN)) + RAND_MIN)
+        
+        return number.truncate.to_s(BASE)
       end
-      return number.truncate.to_s(BASE)
-    end
 
-    ##
-    # Assembles the host fingerprint based on the hostname and the PID.
-    #
-    # @private
-    def get_fingerprint
-      padding = 2
-      hostname = Socket.gethostname
-      hostid = hostname.split('').inject(hostname.length+BASE) do |a,i|
-        a += (i.respond_to? "ord") ? i.ord : i[0]
+      ##
+      # Assembles the host fingerprint based on the hostname and the PID.
+      #
+      # @private
+      def get_fingerprint
+        padding = 2
+        hostname = Socket.gethostname
+        hostid = hostname.split('').inject(hostname.length+BASE) do |a,i|
+          a += (i.respond_to? "ord") ? i.ord : i[0]
+        end
+        return format($$, padding) + format(hostid, padding)
       end
-      return format($$, padding) + format(hostid, padding)
-    end
-
   end
 end
